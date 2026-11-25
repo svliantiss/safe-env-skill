@@ -66,6 +66,10 @@ git diff --cached | "$S" redact        # mask key-shaped strings in a diff
 
 `scan` accepts `NAME=value`, `NAME = value`, `"name": "value"` and
 `const NAME = "..."`, so it catches secrets in source files, not just `.env`.
+It also reports `URL PASSWORD` when a value is a connection string with
+credentials inside (`scheme://user:secret@host`) **whatever the variable is
+called** — that is the case a name-based scan misses, and the one that leaks
+most often, because `DATABASE_URL` looks innocent.
 
 ## The traps, in the order they bite
 
@@ -88,6 +92,14 @@ git diff --cached | "$S" redact        # mask key-shaped strings in a diff
    key names before pasting it anywhere.
 8. **macOS ships bash 3.2.** No `${var^^}`, no associative arrays. Use `tr`
    for case folding, or the script breaks on the machine you wrote it on.
+9. **The password hiding in a connection string.** `DATABASE_URL`,
+   `REDIS_URL`, `AMQP_URL` carry credentials in the middle of a value whose
+   *name* looks harmless, so a name-based scan reports nothing and you conclude
+   the repo is clean. Check by value shape, not only by variable name.
+10. **Trimming, quoting and comment rules differ per file.** An unquoted value
+    gets trimmed and loses ` #...`; a quoted one keeps every character. A
+    parser that trims everything silently changes a password that begins or
+    ends with a space — and the resulting auth failure looks like a wrong key.
 
 ## Verify, every time
 
